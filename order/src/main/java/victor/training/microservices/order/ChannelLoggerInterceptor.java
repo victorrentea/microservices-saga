@@ -1,6 +1,7 @@
 package victor.training.microservices.order;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cloud.stream.messaging.DirectWithAttributesChannel;
 import org.springframework.integration.config.GlobalChannelInterceptor;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -23,7 +24,7 @@ public class ChannelLoggerInterceptor implements ChannelInterceptor {
       ORIGINAL_THREAD_NAME.set(Thread.currentThread().getName());
       Thread.currentThread().setName("saga-" + SAGA_ID.get());
       String body = (message.getPayload() instanceof byte[] arr) ? new String(arr) : "?";
-      log.info("Sending message to {}: {}", channel, body);
+      log.info("Sending message to {}: {}", getChannelReadableName(channel), body);
       return message;
    }
 
@@ -39,11 +40,11 @@ public class ChannelLoggerInterceptor implements ChannelInterceptor {
 
    private String getChannelReadableName(MessageChannel channel) {
       String channelName;
-//      if (channel instanceof DirectWithAttributesChannel direct) {
-//         channelName = direct.getFullChannelName();
-//      } else {
+      if (channel instanceof DirectWithAttributesChannel direct) {
+         channelName = "manual send";
+      } else {
          channelName = channel.toString();
-//      }
+      }
       return channelName;
    }
 }

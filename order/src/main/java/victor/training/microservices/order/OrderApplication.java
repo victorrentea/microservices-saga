@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
+import static org.springframework.messaging.support.MessageBuilder.createMessage;
+
 @Slf4j
 @SpringBootApplication
 @RequiredArgsConstructor
@@ -40,7 +42,7 @@ public class OrderApplication {
 
 			if (response.equals("OK")) {
 				// continue flow
-				Message<String> requestMessage = MessageBuilder.createMessage("Cook " + response, responseMessage.getHeaders());
+				Message<String> requestMessage = createMessage("Cook " + response, responseMessage.getHeaders());
 				streamBridge.send("restaurantRequest", requestMessage);
 			} else {
 				log.error("SAGA failed at step PAYMENT");
@@ -59,7 +61,7 @@ public class OrderApplication {
 			} else {
 				log.error("SAGA failed at step RESTAURANT");
 				log.info("Sending cancel payment request");
-				streamBridge.send("paymentUndoRequest",MessageBuilder.createMessage("Reimburse payment ", responseMessage.getHeaders()));
+				streamBridge.send("paymentUndoRequest", createMessage("Reimburse payment ", responseMessage.getHeaders()));
 			}
       };
    }
