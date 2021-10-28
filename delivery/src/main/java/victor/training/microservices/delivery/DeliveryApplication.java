@@ -32,9 +32,9 @@ public class DeliveryApplication {
 
 //			String response = "KO";
 			DeliveryResponse response = new DeliveryResponse()
-//				.setStatus(Status.BOOKED)
-//				.setCourierPhone("::phone::")
-				.setStatus(Status.COURIER_NOT_FOUND)
+				.setStatus(Status.BOOKED)
+				.setCourierPhone("::phone::")
+//				.setStatus(Status.COURIER_NOT_FOUND)
 				;
 
 			log.info("Sending response: " + response);

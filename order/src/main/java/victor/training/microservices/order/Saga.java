@@ -2,12 +2,13 @@ package victor.training.microservices.order;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import victor.training.microservices.message.DeliveryResponse;
 import victor.training.microservices.message.PaymentResponse;
-import victor.training.microservices.message.PaymentResponse.Status;
-import victor.training.microservices.order.Saga.State.AwaitingPaymentState;
+import victor.training.microservices.message.RestaurantResponse;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
@@ -24,7 +25,7 @@ public class Saga {
    @GeneratedValue
    private Long id;
    @Enumerated(STRING)
-   private Stage stage;
+   private Status status;
    private String orderText;
    private String paymentConfirmationNumber;
    private String restaurantDishId;
@@ -77,84 +78,159 @@ public class Saga {
    }
 
    @RequiredArgsConstructor
-   enum Stage {
-      AWAITING_PAYMENT(AwaitingPaymentState.class),// (sendMessage(Saga), receiveMessage(Saga, M):Stage, undoAction(Saga)),//(PaymentResponse.class, Saga::paymentResponse),
-      AWAITING_RESTAURANT(null),// (sendRestaurantReq(Saga), receiveRestResponse),
-      AWAITING_DELIVERY(null),
+   enum Status {
+      AWAITING_PAYMENT(PaymentStage.class),// (sendMessage(Saga), receiveMessage(Saga, M):Stage, undoAction(Saga)),//(PaymentResponse.class, Saga::paymentResponse),
+      AWAITING_RESTAURANT(RestaurantStage.class),// (sendRestaurantReq(Saga), receiveRestResponse),
+      AWAITING_DELIVERY(DeliveryStage.class),
 
       COMPLETED(null),
       FAILED(null);
 
-      private final Class<? extends State> messageSender;
+      private final Class<? extends Stage> messageSender;
    }
 
-   sealed abstract class State {
+   sealed abstract class Stage permits PaymentStage, RestaurantStage, DeliveryStage {
       protected final Logger log = LoggerFactory.getLogger(getClass());
-      public abstract void request();
-      public abstract Stage receive(Object message);
-      public void undo() {
-         log.debug("Undo N/A");
-      }
 
-      final class AwaitingPaymentState extends State {
+      public abstract void request();
+
+      public abstract Status receive(Object message);
+
+      public void undo() {
+         log.warn("Undo not applicable");
+      }
+   }
+      final class PaymentStage extends Stage {
          public void request() {
             messageSender.sendMessage("paymentRequest-out-0", orderText);
          }
-         public Stage receive(Object message) {
+
+         public Status receive(Object message) {
             if (message instanceof PaymentResponse response) {
-               if (response.getStatus() == Status.KO) {
+               if (response.getStatus() == PaymentResponse.Status.KO) {
                   throw new IllegalArgumentException();
                }
                paymentConfirmationNumber = response.getPaymentConfirmationNumber();
-               return Stage.AWAITING_RESTAURANT;
+               return Status.AWAITING_RESTAURANT;
             } else {
                throw new IllegalArgumentException();
             }
          }
+
          public void undo() {
             messageSender.sendMessage("paymentUndoRequest-out-0", "Revert payment confirmation number:" + paymentConfirmationNumber);
          }
       }
 
-//      final class AwaitingRestaurant extends State {
-//         public void request() {
-//            messageSender.sendMessage("restaurantRequest-out-0", "Please cook " + orderText);
-//         }
-//         public Stage receive(Object message) {
-//            if (message instanceof String response) {
-//               if (response.getStatus() == Status.KO) {
-//                  throw new IllegalArgumentException();
-//               }
-//               paymentConfirmationNumber = response.getPaymentConfirmationNumber();
-//               messageSender.sendMessage("restaurantRequest-out-0", "Please cook " + orderText);
-//               return Stage.AWAITING_RESTAURANT;
-//            } else {
-//               throw new IllegalArgumentException();
-//            }
-//         }
-//      }
+      final class RestaurantStage extends Stage {
+         public void request() {
+            messageSender.sendMessage("restaurantRequest-out-0", "Please cook " + orderText);
+         }
+
+         public Status receive(Object message) {
+            if (message instanceof RestaurantResponse response) {
+               if (response.getStatus() == RestaurantResponse.Status.DISH_UNAVAILABLE) {
+                  throw new IllegalArgumentException();
+               }
+               restaurantDishId = response.getDishId();
+               return Status.AWAITING_DELIVERY;
+            } else {
+               throw new IllegalArgumentException();
+            }
+         }
+
+         public void undo() {
+            messageSender.sendMessage("restaurantUndoRequest-out-0", "Cancel cooking dish ID:" + restaurantDishId);
+         }
+      }
+
+      final class DeliveryStage extends Stage {
+         public void request() {
+            messageSender.sendMessage("deliveryRequest-out-0", "Deliver dishId " + restaurantDishId);
+         }
+
+         public Status receive(Object message) {
+            if (message instanceof DeliveryResponse response) {
+               if (response.getStatus() == DeliveryResponse.Status.COURIER_NOT_FOUND) {
+                  throw new IllegalArgumentException("Courier NOT available");
+                   // or
+//                  return Status.FAILED;
+               }
+               courierPhone = response.getCourierPhone();
+               return Status.COMPLETED;
+            } else {
+               throw new IllegalArgumentException();
+            }
+         }
+      }
+
+   public void handleAnyResponse(Object responsePayload) {
+      log.info("Received response message: " + responsePayload);
+      Status newStatus = tryExecuteRequest(responsePayload);
+
+      if (newStatus == Status.FAILED) {
+         undoPreviousSteps();
+      }
+
+      log.info("Moving from {} -> {}", status, newStatus);
+      if (newStatus.ordinal() < status.ordinal()) {
+         throw new IllegalArgumentException("You cannot return to a previous status");
+      }
+
+      status = newStatus;
+
+      switch (status) {
+         case FAILED -> log.warn("SAGA FAILED");
+         case COMPLETED -> log.info("SAGA Completed");
+         default -> currentStage(status).request();
+      }
+   }
+
+   @SneakyThrows
+   private void undoPreviousSteps() {
+      for (int i = status.ordinal() - 1; i >= 0; i--) {
+         currentStage(Status.values()[i]).undo();
+      }
+      log.warn("Sent all UNDO requests. ");
+   }
+
+   private Status tryExecuteRequest(Object responsePayload) {
+      try {
+         return currentStage(status).receive(responsePayload);
+      } catch (Exception e) {
+         log.error("SAGA ERROR (full stack on TRACE): " + e);
+         log.trace("Exception details: ", e);
+         return Status.FAILED;
+      }
+   }
+
+   @SneakyThrows
+   private Stage currentStage(Status status) {
+      // Note: inner instance classes
+      return status.messageSender.getDeclaredConstructor(Saga.class).newInstance(this);
    }
 
    public void paymentResponse(PaymentResponse response) {
-      if (stage != Stage.AWAITING_PAYMENT) {
+      if (status != Status.AWAITING_PAYMENT) {
          throw new IllegalStateException();
       }
-      if (response.getStatus() == Status.KO) {
+      if (response.getStatus() == PaymentResponse.Status.KO) {
          log.error("SAGA failed at step PAYMENT. All fine: nothing to undo");
-         stage = Stage.FAILED;
+         status = Status.FAILED;
       } else {
          paymentConfirmationNumber = response.getPaymentConfirmationNumber();
-         stage = Stage.AWAITING_RESTAURANT;
+         status = Status.AWAITING_RESTAURANT;
          messageSender.sendMessage("restaurantRequest-out-0", "Please cook " + orderText);
       }
    }
+
    class SagaStage<RQ, RS, U> {
-      private final Stage stage;
+      private final Status stage;
       private final Supplier<RQ> send;
       private final Consumer<RS> receive;
       private Supplier<U> undo;
 
-      SagaStage(Stage stage, Supplier<RQ> send, Consumer<RS> receive) {
+      SagaStage(Status stage, Supplier<RQ> send, Consumer<RS> receive) {
          this.stage = stage;
          this.send = send;
          this.receive = receive;
