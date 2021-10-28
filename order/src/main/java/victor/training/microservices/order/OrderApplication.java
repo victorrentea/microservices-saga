@@ -9,8 +9,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import victor.training.microservices.order.SagaEntity.Stage;
-import victor.training.microservices.order.util.ClearableThreadScope;
+import victor.training.microservices.order.context.ClearableThreadScope;
+import victor.training.microservices.order.context.SagaContext;
 
+import java.time.format.DateTimeFormatter;
 import java.util.function.Consumer;
 
 import static java.time.LocalDateTime.now;
@@ -33,7 +35,7 @@ public class OrderApplication {
    @GetMapping
    public String startSaga() {
 		SagaEntity saga = context.startSaga();
-		String orderText = "Pizza Order " + now();
+		String orderText = "Pizza Order " + now().format(DateTimeFormatter.ISO_LOCAL_TIME);
 		saga.setOrderText(orderText);
 		context.sendMessage("paymentRequest-out-0", orderText);
 		saga.setStage(Stage.AWAITING_PAYMENT);
@@ -48,7 +50,7 @@ public class OrderApplication {
 			}
 			if (response.equalsIgnoreCase("KO")) {
 				log.error("SAGA failed at step PAYMENT. All fine: nothing to undo");
-				context.currentSaga().setStage(Stage.COMPLETED);
+				context.currentSaga().setStage(Stage.FAILED);
 			} else {
 				context.currentSaga().setPaymentConfirmationNumber(response);
 				context.sendMessage("restaurantRequest-out-0", "Please cook " + context.currentSaga().getOrderText());
@@ -66,11 +68,12 @@ public class OrderApplication {
 			if (response.equals("KO")) {
 				log.error("SAGA failed at step RESTAURANT");
 				context.sendMessage("paymentUndoRequest-out-0", "Revert payment confirmation number:" + context.currentSaga().getPaymentConfirmationNumber());
+				context.currentSaga().setStage(Stage.FAILED);
 			} else {
 				String dishId = response;
 				context.currentSaga().setRestaurantDishId(dishId);
-				context.currentSaga().setStage(Stage.AWAITING_DELIVERY);
 				context.sendMessage("deliveryRequest-out-0", "Deliver dishId " + dishId);
+				context.currentSaga().setStage(Stage.AWAITING_DELIVERY);
 			}
 		};
    }
@@ -83,10 +86,12 @@ public class OrderApplication {
 			}
 			if (response.equals("OK")) {
 				log.info("SAGA completed OK");
+				context.currentSaga().setStage(Stage.COMPLETED);
 			} else {
 				log.error("SAGA failed at step DELIVERY");
 				context.sendMessage("paymentUndoRequest-out-0", "Revert payment confirmation number:" + context.currentSaga().getPaymentConfirmationNumber());
 				context.sendMessage("restaurantUndoRequest-out-0", "Cancel cooking dish ID:" + context.currentSaga().getRestaurantDishId());
+				context.currentSaga().setStage(Stage.FAILED);
 			}
       };
    }

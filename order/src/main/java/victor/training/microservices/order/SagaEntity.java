@@ -16,14 +16,13 @@ public class SagaEntity {
    @Id
    @GeneratedValue
    private Long id;
-
-   private LocalDateTime createTime = LocalDateTime.now();
    @Enumerated(STRING)
-   private Stage stage = Stage.AWAITING_PAYMENT;
-   private String errorMessage;
+   private Stage stage;
    private String orderText;
    private String paymentConfirmationNumber;
    private String restaurantDishId;
+   private LocalDateTime createTime = LocalDateTime.now();
+   private String errorMessage;
 
    public void setErrorMessage(String errorMessage) {
       this.errorMessage = errorMessage;
@@ -62,5 +61,6 @@ public class SagaEntity {
       AWAITING_RESTAURANT,
       AWAITING_DELIVERY,
       COMPLETED,
+      FAILED
    }
 }

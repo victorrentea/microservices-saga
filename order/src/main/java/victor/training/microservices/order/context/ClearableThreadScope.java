@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package victor.training.microservices.order.util;
+package victor.training.microservices.order.context;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectFactory;

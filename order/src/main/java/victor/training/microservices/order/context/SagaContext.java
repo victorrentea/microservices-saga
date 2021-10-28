@@ -1,13 +1,16 @@
-package victor.training.microservices.order;
+package victor.training.microservices.order.context;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.stereotype.Component;
+import victor.training.microservices.order.SagaEntity;
+import victor.training.microservices.order.SagaEntityRepo;
 
 import static org.springframework.messaging.support.MessageBuilder.withPayload;
 
@@ -25,14 +28,16 @@ public class SagaContext {
          throw new IllegalStateException("Another saga is already in progress");
       }
       saga = sagaRepo.save(new SagaEntity());
+      MDC.put("sagaId","saga-" + saga.getId());
       log.info("Started saga id {}", saga.getId());
       return saga;
    }
 
-   public void resumeSaga(MessageHeaders incomingHeaders) {
+   void resumeSaga(MessageHeaders incomingHeaders) {
       Long sagaId = (Long) incomingHeaders.get("SAGA_ID");
       saga = sagaRepo.findById(sagaId).get();
-      log.warn("Resumed saga id {}: {}", sagaId, saga);
+      MDC.put("sagaId","saga-" + sagaId);
+      log.debug("<< Resumed saga id {}: {}", sagaId, saga);
    }
 
    public SagaEntity currentSaga() {
@@ -51,10 +56,11 @@ public class SagaContext {
       return saga.getId();
    }
 
-   public void flushSaga() {
+   void flushSaga() {
       if (saga != null) {
-         log.warn("Writing saga to DB: " + saga);
+         log.debug(">> Writing saga to DB: " + saga);
          sagaRepo.save(saga);
       }
+      MDC.clear();
    }
 }
