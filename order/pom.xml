@@ -8,6 +8,12 @@
 		<version>0.0.1-SNAPSHOT</version>
 	</parent>
     <artifactId>order</artifactId>
+    <dependencies>
+        <dependency>
+            <groupId>victor.training.microservices</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+    </dependencies>
     <build>
         <plugins>
             <plugin>

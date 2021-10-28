@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import victor.training.microservices.message.PaymentResponse;
 import victor.training.microservices.order.Saga.Stage;
 import victor.training.microservices.order.context.SagaContext;
 
@@ -34,16 +35,16 @@ public class OrderApplication {
    }
 
    @Bean
-   public Consumer<String> paymentResponse() {
+   public Consumer<PaymentResponse> paymentResponse() {
       return response -> {
 			if (context.currentSaga().getStage() != Stage.AWAITING_PAYMENT) {
 				throw new IllegalStateException();
 			}
-			if (response.equalsIgnoreCase("KO")) {
+			if (response.getStatus() == PaymentResponse.Status.KO) {
 				log.error("SAGA failed at step PAYMENT. All fine: nothing to undo");
 				context.currentSaga().setStage(Stage.FAILED);
 			} else {
-				context.currentSaga().setPaymentConfirmationNumber(response);
+				context.currentSaga().setPaymentConfirmationNumber(response.getPaymentConfirmationNumber());
 				context.sendMessage("restaurantRequest-out-0", "Please cook " + context.currentSaga().getOrderText());
 				context.currentSaga().setStage(Stage.AWAITING_RESTAURANT);
 			}

@@ -6,6 +6,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
+import victor.training.microservices.message.PaymentResponse;
+import victor.training.microservices.message.PaymentResponse.Status;
 
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -17,7 +19,7 @@ public class PaymentApplication {
 	}
 
 	@Bean
-	public Function<Message<String>, Message<String>> payment() {
+	public Function<Message<String>, Message<PaymentResponse>> payment() {
 		return request -> {
 			log.info("Received payment request for " + request.getPayload());
 			log.info("SAGA_ID="+request.getHeaders().get("SAGA_ID"));
@@ -26,7 +28,10 @@ public class PaymentApplication {
 			sleep(1000);
 
 //			String response = "KO";
-			String response = "#" + System.currentTimeMillis();
+//			String response = "#" + System.currentTimeMillis();
+			PaymentResponse response = new PaymentResponse()
+				.setStatus(Status.OK)
+				.setPaymentConfirmationNumber("#" + System.currentTimeMillis());
 
 			log.info("Sending response: " + response);
 			return MessageBuilder.createMessage(response, request.getHeaders());

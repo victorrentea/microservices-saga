@@ -9,6 +9,12 @@
 	</parent>
 	<artifactId>restaurant</artifactId>
 
+	<dependencies>
+		<dependency>
+			<groupId>victor.training.microservices</groupId>
+			<artifactId>common</artifactId>
+		</dependency>
+	</dependencies>
 	<build>
 		<plugins>
 			<plugin>
