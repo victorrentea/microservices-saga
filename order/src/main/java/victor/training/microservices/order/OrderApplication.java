@@ -2,83 +2,94 @@ package victor.training.microservices.order;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.RandomStringUtils;
+import org.springframework.beans.factory.config.CustomScopeConfigurer;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.context.annotation.Bean;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import victor.training.microservices.order.SagaEntity.Stage;
+import victor.training.microservices.order.util.ClearableThreadScope;
 
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-import static org.springframework.messaging.support.MessageBuilder.createMessage;
+import static java.time.LocalDateTime.now;
+
 
 @Slf4j
 @SpringBootApplication
 @RequiredArgsConstructor
 @RestController
 public class OrderApplication {
-   private final StreamBridge streamBridge;
-	private static final AtomicInteger counter = new AtomicInteger();
+	private final SagaContext context;
+
+	@Bean
+	public static CustomScopeConfigurer defineThreadScope() {
+		CustomScopeConfigurer configurer = new CustomScopeConfigurer();
+		configurer.addScope("thread", new ClearableThreadScope());
+		return configurer;
+	}
 
    @GetMapping
    public String startSaga() {
-      String sagaId = RandomStringUtils.randomAlphabetic(6);// use in prod UUID.randomUUID().toString();
-      log.info("Starting SAGA_ID: " + sagaId);
-		String orderId = "Order " + counter.incrementAndGet();
-		Message<String> firstMessage = MessageBuilder.withPayload(orderId).setHeader("SAGA_ID", sagaId).build();
-		streamBridge.send("paymentRequest", firstMessage);
+		SagaEntity saga = context.startSaga();
+		String orderText = "Pizza Order " + now();
+		saga.setOrderText(orderText);
+		context.sendMessage("paymentRequest-out-0", orderText);
+		saga.setStage(Stage.AWAITING_PAYMENT);
       return "Message sent!";
    }
 
    @Bean
-   public Consumer<Message<String>> paymentResponse() {
-      return responseMessage -> {
-			String response = responseMessage.getPayload();
-
-			if (response.equals("OK")) {
-				// continue flow
-				Message<String> requestMessage = createMessage("Cook " + response, responseMessage.getHeaders());
-				streamBridge.send("restaurantRequest", requestMessage);
-			} else {
-				log.error("SAGA failed at step PAYMENT");
+   public Consumer<String> paymentResponse() {
+      return response -> {
+			if (context.currentSaga().getStage() != Stage.AWAITING_PAYMENT) {
+				throw new IllegalStateException();
 			}
-      };
-   }
-
-   @Bean
-   public Consumer<Message<String>> restaurantResponse() {
-      return responseMessage -> {
-			String response = responseMessage.getPayload();
-
-			if (response.equals("OK")) {
-				// continue flow
-				log.info("SAGA completed");
+			if (response.equalsIgnoreCase("KO")) {
+				log.error("SAGA failed at step PAYMENT. All fine: nothing to undo");
+				context.currentSaga().setStage(Stage.COMPLETED);
 			} else {
-				log.error("SAGA failed at step RESTAURANT");
-				log.info("Sending cancel payment request");
-				streamBridge.send("paymentUndoRequest", createMessage("Reimburse payment ", responseMessage.getHeaders()));
+				context.currentSaga().setPaymentConfirmationNumber(response);
+				context.sendMessage("restaurantRequest-out-0", "Please cook " + context.currentSaga().getOrderText());
+				context.currentSaga().setStage(Stage.AWAITING_RESTAURANT);
 			}
-      };
+		};
    }
 
 	@Bean
-	public Consumer<Message<String>> paymentUndoResponse() {
-		return responseMessage -> {
-			String response = responseMessage.getPayload();
-
-			if (response.equals("OK")) {
-				log.info("SAGA cancelled successfully");
+   public Consumer<String> restaurantResponse() {
+      return response -> {
+			if (context.currentSaga().getStage() != Stage.AWAITING_RESTAURANT) {
+				throw new IllegalStateException();
+			}
+			if (response.equals("KO")) {
+				log.error("SAGA failed at step RESTAURANT");
+				context.sendMessage("paymentUndoRequest-out-0", "Revert payment confirmation number:" + context.currentSaga().getPaymentConfirmationNumber());
 			} else {
-				log.error("Cancel payment operation failed");
-				log.error("Sending an email");
+				String dishId = response;
+				context.currentSaga().setRestaurantDishId(dishId);
+				context.currentSaga().setStage(Stage.AWAITING_DELIVERY);
+				context.sendMessage("deliveryRequest-out-0", "Deliver dishId " + dishId);
 			}
 		};
-	}
+   }
+
+	@Bean
+   public Consumer<String> deliveryResponse() {
+      return response -> {
+			if (context.currentSaga().getStage() != Stage.AWAITING_DELIVERY) {
+				throw new IllegalStateException();
+			}
+			if (response.equals("OK")) {
+				log.info("SAGA completed OK");
+			} else {
+				log.error("SAGA failed at step DELIVERY");
+				context.sendMessage("paymentUndoRequest-out-0", "Revert payment confirmation number:" + context.currentSaga().getPaymentConfirmationNumber());
+				context.sendMessage("restaurantUndoRequest-out-0", "Cancel cooking dish ID:" + context.currentSaga().getRestaurantDishId());
+			}
+      };
+   }
 
 
 

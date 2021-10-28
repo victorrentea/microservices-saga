@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 @Slf4j
@@ -27,12 +28,33 @@ public class RestaurantApplication {
 			log.info("Cooking ...");
 			sleep(1000);
 
-			String response = "KO";
+			String response = "OK dish13214";
+//			String response = "KO";
 
 			log.info("Sending response: " + response);
 			return MessageBuilder.createMessage(response, request.getHeaders());
 		};
 	}
+
+	@Bean
+	public Consumer<Message<String>> restaurantUndo() {
+		return request -> {
+			log.info("Received cancel request " + request.getPayload());
+			log.info("SAGA_ID="+request.getHeaders().get("SAGA_ID"));
+
+			log.info("Cancelling dish ...");
+			sleep(1000);
+
+			String response = "OK";
+
+			log.info("DISH CANCELLED: " + response);
+
+			// throw new RuntimeException("Revert payment failed!");
+
+//			return MessageBuilder.createMessage(response, request.getHeaders());
+		};
+	}
+
 
 	//<editor-fold desc="sleep">
 	private static void sleep(int millis) {

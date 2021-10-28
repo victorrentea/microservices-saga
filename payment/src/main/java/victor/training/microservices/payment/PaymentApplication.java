@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 
+import java.util.function.Consumer;
 import java.util.function.Function;
 @Slf4j
 @SpringBootApplication
@@ -24,7 +25,8 @@ public class PaymentApplication {
 			log.info("Processing payment ...");
 			sleep(1000);
 
-			String response = "OK";
+//			String response = "KO";
+			String response = "#" + System.currentTimeMillis();
 
 			log.info("Sending response: " + response);
 			return MessageBuilder.createMessage(response, request.getHeaders());
@@ -32,7 +34,7 @@ public class PaymentApplication {
 	}
 
 	@Bean
-	public Function<Message<String>, Message<String>> paymentUndo() {
+	public Consumer<Message<String>> paymentUndo() {
 		return request -> {
 			log.info("Received request to undo payment " + request.getPayload());
 			log.info("SAGA_ID="+request.getHeaders().get("SAGA_ID"));
@@ -42,8 +44,11 @@ public class PaymentApplication {
 
 			String response = "OK";
 
-			log.info("Sending response: " + response);
-			return MessageBuilder.createMessage(response, request.getHeaders());
+			log.info("PAYMENT REVERTED: " + response);
+
+			// throw new RuntimeException("Revert payment failed!");
+
+//			return MessageBuilder.createMessage(response, request.getHeaders());
 		};
 	}
 
