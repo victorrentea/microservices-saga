@@ -11,14 +11,11 @@ import java.io.IOException;
 @Component
 @RequiredArgsConstructor
 public class ClearThreadScopeFilter implements Filter {
-   private final SagaContext context;
-
    @Override
    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
       try {
          chain.doFilter(request, response);
       } finally {
-         context.flushSaga();
          ClearableThreadScope.clearAllThreadData();
       }
    }

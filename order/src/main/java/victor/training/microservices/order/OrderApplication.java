@@ -2,14 +2,12 @@ package victor.training.microservices.order;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.config.CustomScopeConfigurer;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
-import victor.training.microservices.order.SagaEntity.Stage;
-import victor.training.microservices.order.context.ClearableThreadScope;
+import victor.training.microservices.order.Saga.Stage;
 import victor.training.microservices.order.context.SagaContext;
 
 import java.time.format.DateTimeFormatter;
@@ -25,16 +23,9 @@ import static java.time.LocalDateTime.now;
 public class OrderApplication {
 	private final SagaContext context;
 
-	@Bean
-	public static CustomScopeConfigurer defineThreadScope() {
-		CustomScopeConfigurer configurer = new CustomScopeConfigurer();
-		configurer.addScope("thread", new ClearableThreadScope());
-		return configurer;
-	}
-
    @GetMapping
    public String startSaga() {
-		SagaEntity saga = context.startSaga();
+		Saga saga = context.startSaga();
 		String orderText = "Pizza Order " + now().format(DateTimeFormatter.ISO_LOCAL_TIME);
 		saga.setOrderText(orderText);
 		context.sendMessage("paymentRequest-out-0", orderText);

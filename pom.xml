@@ -14,6 +14,7 @@
     <packaging>pom</packaging>
 
     <modules>
+        <module>common</module>
         <module>restaurant</module>
         <module>saga</module>
         <module>delivery</module>
@@ -88,6 +89,11 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>victor.training.microservices</groupId>
+                <artifactId>common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
                 <version>${spring-cloud.version}</version>
@@ -97,22 +103,7 @@
         </dependencies>
     </dependencyManagement>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
+
 
 
 </project>

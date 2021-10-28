@@ -24,6 +24,7 @@ import org.springframework.lang.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 /**
  * Silly but correct implementation of Thread scope that supports clearing of all data at the end.
@@ -41,7 +42,22 @@ public class ClearableThreadScope implements Scope {
 			}
 		};
 
+	private static final ThreadLocal<Map<String, Runnable>> destructionCallbacks = new NamedThreadLocal<>("DestructionCallbacks") {
+		@Override
+		protected Map<String, Runnable> initialValue() {
+			return new HashMap<>();
+		}
+	};
+
 	public static void clearAllThreadData() {
+		for (Entry<String, Runnable> entry : destructionCallbacks.get().entrySet()) {
+			try {
+				entry.getValue().run();
+			} catch (Exception e) {
+				log.error("Failed to call destruction '{}'", entry.getKey());
+			}
+		}
+		destructionCallbacks.remove();
 		threadScope.remove();
 	}
 
@@ -65,8 +81,7 @@ public class ClearableThreadScope implements Scope {
 
 	@Override
 	public void registerDestructionCallback(String name, Runnable callback) {
-		log.warn("SimpleThreadScope does not support destruction callbacks. " +
-					"Consider using RequestScope in a web environment.");
+		destructionCallbacks.get().put(name, callback);
 	}
 
 	@Override

@@ -3,14 +3,15 @@ package victor.training.microservices.order.context;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.stereotype.Component;
-import victor.training.microservices.order.SagaEntity;
-import victor.training.microservices.order.SagaEntityRepo;
+import victor.training.microservices.order.Saga;
+import victor.training.microservices.order.SagaRepo;
 
 import static org.springframework.messaging.support.MessageBuilder.withPayload;
 
@@ -18,16 +19,16 @@ import static org.springframework.messaging.support.MessageBuilder.withPayload;
 @Component
 @RequiredArgsConstructor
 @Scope(value = "thread", proxyMode = ScopedProxyMode.TARGET_CLASS)
-public class SagaContext {
-   private final SagaEntityRepo sagaRepo;
+public class SagaContext implements DisposableBean {
+   private final SagaRepo sagaRepo;
    private final StreamBridge streamBridge;
-   private SagaEntity saga;
+   private Saga saga;
 
-   public SagaEntity startSaga() {
+   public Saga startSaga() {
       if (saga != null) {
          throw new IllegalStateException("Another saga is already in progress");
       }
-      saga = sagaRepo.save(new SagaEntity());
+      saga = sagaRepo.save(new Saga());
       MDC.put("sagaId","saga-" + saga.getId());
       log.info("Started saga id {}", saga.getId());
       return saga;
@@ -40,7 +41,7 @@ public class SagaContext {
       log.debug("<< Resumed saga id {}: {}", sagaId, saga);
    }
 
-   public SagaEntity currentSaga() {
+   public Saga currentSaga() {
       return saga;
    }
 
@@ -62,5 +63,10 @@ public class SagaContext {
          sagaRepo.save(saga);
       }
       MDC.clear();
+   }
+
+   @Override
+   public void destroy() throws Exception {
+      flushSaga();
    }
 }

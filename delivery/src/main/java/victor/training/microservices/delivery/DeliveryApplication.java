@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
+import victor.training.microservices.common.Sleep;
 
 import java.util.function.Function;
 
@@ -25,7 +26,7 @@ public class DeliveryApplication {
 			log.info("SAGA_ID="+request.getHeaders().get("SAGA_ID"));
 
 			log.info("Finding delivery boy ...");
-			sleep(1000);
+			Sleep.sleep(1000);
 
 			String response = "KO";
 
@@ -34,15 +35,5 @@ public class DeliveryApplication {
 		};
 	}
 
-
-	//<editor-fold desc="sleep">
-	private static void sleep(int millis) {
-		try {
-			Thread.sleep(millis);
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
-		}
-	}
-	//</editor-fold>
 
 }

@@ -12,7 +12,7 @@ import static javax.persistence.EnumType.STRING;
 
 @Entity
 @Data
-public class SagaEntity {
+public class Saga {
    @Id
    @GeneratedValue
    private Long id;

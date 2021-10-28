@@ -35,9 +35,9 @@ final class FailedState implements SagaState {
 }
 final class AwaitingPaymentState implements SagaState {
 
-   private final SagaEntity saga;
+   private final Saga saga;
 
-   AwaitingPaymentState(SagaEntity saga) {
+   AwaitingPaymentState(Saga saga) {
       this.saga = saga;
    }
 

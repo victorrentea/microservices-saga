@@ -25,7 +25,6 @@ public class SagaContextMessageInterceptor implements ChannelInterceptor {
 
    @Override
    public void afterSendCompletion(Message<?> message, MessageChannel channel, boolean sent, Exception ex) {
-      sagaContext.flushSaga();
       ClearableThreadScope.clearAllThreadData();
    }
 
