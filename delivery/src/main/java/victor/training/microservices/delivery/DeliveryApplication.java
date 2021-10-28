@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import victor.training.microservices.common.Sleep;
+import victor.training.microservices.message.DeliveryResponse;
+import victor.training.microservices.message.DeliveryResponse.Status;
 
 import java.util.function.Function;
 
@@ -20,15 +22,20 @@ public class DeliveryApplication {
 
 
 	@Bean
-	public Function<Message<String>, Message<String>> restaurant() {
+	public Function<Message<String>, Message<DeliveryResponse>> restaurant() {
 		return request -> {
 			log.info("Received delivery request for " + request.getPayload());
 			log.info("SAGA_ID="+request.getHeaders().get("SAGA_ID"));
 
 			log.info("Finding delivery boy ...");
-			Sleep.sleep(1000);
+			Sleep.sleepQuiet(1000);
 
-			String response = "KO";
+//			String response = "KO";
+			DeliveryResponse response = new DeliveryResponse()
+//				.setStatus(Status.BOOKED)
+//				.setCourierPhone("::phone::")
+				.setStatus(Status.COURIER_NOT_FOUND)
+				;
 
 			log.info("Sending response: " + response);
 			return MessageBuilder.createMessage(response, request.getHeaders());

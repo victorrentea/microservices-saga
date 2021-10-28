@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
+import victor.training.microservices.common.Sleep;
 import victor.training.microservices.message.PaymentResponse;
 import victor.training.microservices.message.PaymentResponse.Status;
 
@@ -25,7 +26,7 @@ public class PaymentApplication {
 			log.info("SAGA_ID="+request.getHeaders().get("SAGA_ID"));
 
 			log.info("Processing payment ...");
-			sleep(1000);
+			Sleep.sleepQuiet(1000);
 
 //			String response = "KO";
 //			String response = "#" + System.currentTimeMillis();
@@ -45,7 +46,7 @@ public class PaymentApplication {
 			log.info("SAGA_ID="+request.getHeaders().get("SAGA_ID"));
 
 			log.info("Reverting payment ...");
-			sleep(1000);
+			Sleep.sleepQuiet(1000);
 
 			String response = "OK";
 
@@ -57,14 +58,5 @@ public class PaymentApplication {
 		};
 	}
 
-	//<editor-fold desc="sleep">
-	private static void sleep(int millis) {
-		try {
-			Thread.sleep(millis);
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
-		}
-	}
-	//</editor-fold>
 
 }

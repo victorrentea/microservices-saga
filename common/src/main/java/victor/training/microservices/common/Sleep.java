@@ -1,7 +1,7 @@
 package victor.training.microservices.common;
 
 public class Sleep {
-   public static void sleep(int millis) {
+   public static void sleepQuiet(int millis) {
       try {
          Thread.sleep(millis);
       } catch (InterruptedException e) {

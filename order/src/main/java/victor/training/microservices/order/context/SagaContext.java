@@ -29,6 +29,7 @@ public class SagaContext implements DisposableBean {
          throw new IllegalStateException("Another saga is already in progress");
       }
       saga = sagaRepo.save(new Saga());
+      saga.setMessageSender(this::sendMessage);
       MDC.put("sagaId","saga-" + saga.getId());
       log.info("Started saga id {}", saga.getId());
       return saga;
@@ -37,6 +38,7 @@ public class SagaContext implements DisposableBean {
    void resumeSaga(MessageHeaders incomingHeaders) {
       Long sagaId = (Long) incomingHeaders.get("SAGA_ID");
       saga = sagaRepo.findById(sagaId).get();
+      saga.setMessageSender(this::sendMessage);
       MDC.put("sagaId","saga-" + sagaId);
       log.debug("<< Resumed saga id {}: {}", sagaId, saga);
    }

@@ -7,7 +7,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import victor.training.microservices.message.DeliveryResponse;
+import victor.training.microservices.message.DeliveryResponse.Status;
 import victor.training.microservices.message.PaymentResponse;
+import victor.training.microservices.message.RestaurantResponse;
 import victor.training.microservices.order.Saga.Stage;
 import victor.training.microservices.order.context.SagaContext;
 
@@ -41,7 +44,7 @@ public class OrderApplication {
 
    @Bean
 	public Consumer<PaymentResponse> paymentResponse() {
-		return response -> wrap(context.currentSaga()::paymentResponse).accept(response);
+		return response -> context.currentSaga().paymentResponse(response);
 		// or:
 //		return response -> {
 //			if (context.currentSaga().getStage() != Stage.AWAITING_PAYMENT) {
@@ -59,17 +62,17 @@ public class OrderApplication {
 	}
 
 	@Bean
-   public Consumer<String> restaurantResponse() {
+   public Consumer<RestaurantResponse> restaurantResponse() {
       return response -> {
 			if (context.currentSaga().getStage() != Stage.AWAITING_RESTAURANT) {
 				throw new IllegalStateException();
 			}
-			if (response.equals("KO")) {
+			if (response.getStatus() == RestaurantResponse.Status.DISH_UNAVAILABLE) {
 				log.error("SAGA failed at step RESTAURANT");
 				context.sendMessage("paymentUndoRequest-out-0", "Revert payment confirmation number:" + context.currentSaga().getPaymentConfirmationNumber());
 				context.currentSaga().setStage(Stage.FAILED);
 			} else {
-				String dishId = response;
+				String dishId = response.getDishId();
 				context.currentSaga().setRestaurantDishId(dishId);
 				context.sendMessage("deliveryRequest-out-0", "Deliver dishId " + dishId);
 				context.currentSaga().setStage(Stage.AWAITING_DELIVERY);
@@ -78,13 +81,14 @@ public class OrderApplication {
    }
 
 	@Bean
-   public Consumer<String> deliveryResponse() {
+   public Consumer<DeliveryResponse> deliveryResponse() {
       return response -> {
 			if (context.currentSaga().getStage() != Stage.AWAITING_DELIVERY) {
 				throw new IllegalStateException();
 			}
-			if (response.equals("OK")) {
+			if (response.getStatus() == Status.BOOKED) {
 				log.info("SAGA completed OK");
+				context.currentSaga().setCourierPhone(response.getCourierPhone());
 				context.currentSaga().setStage(Stage.COMPLETED);
 			} else {
 				log.error("SAGA failed at step DELIVERY");

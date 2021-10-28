@@ -6,6 +6,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
+import victor.training.microservices.common.Sleep;
+import victor.training.microservices.message.RestaurantResponse;
+import victor.training.microservices.message.RestaurantResponse.Status;
 
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -20,16 +23,19 @@ public class RestaurantApplication {
 
 
 	@Bean
-	public Function<Message<String>, Message<String>> restaurant() {
+	public Function<Message<String>, Message<RestaurantResponse>> restaurant() {
 		return request -> {
 			log.info("Received restaurant request for " + request.getPayload());
 			log.info("SAGA_ID="+request.getHeaders().get("SAGA_ID"));
 
 			log.info("Cooking ...");
-			sleep(1000);
+			Sleep.sleepQuiet(1000);
 
-			String response = "OK dish13214";
+//			String response = "OK dish13214";
 //			String response = "KO";
+			RestaurantResponse response = new RestaurantResponse()
+				.setDishId("dish1234123")
+				.setStatus(Status.ORDER_ACCEPTED);
 
 			log.info("Sending response: " + response);
 			return MessageBuilder.createMessage(response, request.getHeaders());
@@ -43,7 +49,7 @@ public class RestaurantApplication {
 			log.info("SAGA_ID="+request.getHeaders().get("SAGA_ID"));
 
 			log.info("Cancelling dish ...");
-			sleep(1000);
+			Sleep.sleepQuiet(1000);
 
 			String response = "OK";
 
@@ -55,15 +61,5 @@ public class RestaurantApplication {
 		};
 	}
 
-
-	//<editor-fold desc="sleep">
-	private static void sleep(int millis) {
-		try {
-			Thread.sleep(millis);
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
-		}
-	}
-	//</editor-fold>
 
 }
