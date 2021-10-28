@@ -12,6 +12,7 @@ import victor.training.microservices.order.Saga.Stage;
 import victor.training.microservices.order.context.SagaContext;
 
 import java.time.format.DateTimeFormatter;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static java.time.LocalDateTime.now;
@@ -34,22 +35,28 @@ public class OrderApplication {
       return "Message sent!";
    }
 
+	private <T> Consumer<T> wrap(BiConsumer<T, BiConsumer<String, Object>> sagaMethod) {
+		return response -> sagaMethod.accept(response, context::sendMessage);
+	}
+
    @Bean
-   public Consumer<PaymentResponse> paymentResponse() {
-      return response -> {
-			if (context.currentSaga().getStage() != Stage.AWAITING_PAYMENT) {
-				throw new IllegalStateException();
-			}
-			if (response.getStatus() == PaymentResponse.Status.KO) {
-				log.error("SAGA failed at step PAYMENT. All fine: nothing to undo");
-				context.currentSaga().setStage(Stage.FAILED);
-			} else {
-				context.currentSaga().setPaymentConfirmationNumber(response.getPaymentConfirmationNumber());
-				context.sendMessage("restaurantRequest-out-0", "Please cook " + context.currentSaga().getOrderText());
-				context.currentSaga().setStage(Stage.AWAITING_RESTAURANT);
-			}
-		};
-   }
+	public Consumer<PaymentResponse> paymentResponse() {
+		return response -> wrap(context.currentSaga()::paymentResponse).accept(response);
+		// or:
+//		return response -> {
+//			if (context.currentSaga().getStage() != Stage.AWAITING_PAYMENT) {
+//				throw new IllegalStateException();
+//			}
+//			if (response.getStatus() == PaymentResponse.Status.KO) {
+//				log.error("SAGA failed at step PAYMENT. All fine: nothing to undo");
+//				context.currentSaga().setStage(Stage.FAILED);
+//			} else {
+//				context.currentSaga().setPaymentConfirmationNumber(response.getPaymentConfirmationNumber());
+//				context.sendMessage("restaurantRequest-out-0", "Please cook " + context.currentSaga().getOrderText());
+//				context.currentSaga().setStage(Stage.AWAITING_RESTAURANT);
+//			}
+//		};
+	}
 
 	@Bean
    public Consumer<String> restaurantResponse() {
