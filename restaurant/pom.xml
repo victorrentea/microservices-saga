@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
 		<groupId>victor.training.microservices</groupId>
-		<artifactId>microservices</artifactId>
+		<artifactId>microservices-saga</artifactId>
 		<version>0.0.1-SNAPSHOT</version>
 	</parent>
 	<artifactId>restaurant</artifactId>

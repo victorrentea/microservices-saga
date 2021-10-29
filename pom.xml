@@ -9,14 +9,13 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>victor.training.microservices</groupId>
-    <artifactId>microservices</artifactId>
+    <artifactId>microservices-saga</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <modules>
         <module>common</module>
         <module>restaurant</module>
-        <module>saga</module>
         <module>delivery</module>
         <module>order</module>
         <module>payment</module>
