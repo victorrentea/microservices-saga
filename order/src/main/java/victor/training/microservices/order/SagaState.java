@@ -17,10 +17,11 @@ import java.util.function.Supplier;
 
 import static javax.persistence.EnumType.STRING;
 
+@RequiredArgsConstructor
 @Slf4j
 @Entity
 @Data
-public class Saga {
+public class SagaState {
    @Id
    @GeneratedValue
    private Long id;
@@ -207,7 +208,7 @@ public class Saga {
    @SneakyThrows
    private Stage currentStage(Status status) {
       // Note: inner instance classes
-      return status.messageSender.getDeclaredConstructor(Saga.class).newInstance(this);
+      return status.messageSender.getDeclaredConstructor(SagaState.class).newInstance(this);
    }
 
    public void paymentResponse(PaymentResponse response) {

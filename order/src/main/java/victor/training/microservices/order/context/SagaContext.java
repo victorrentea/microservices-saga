@@ -10,7 +10,7 @@ import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.stereotype.Component;
-import victor.training.microservices.order.Saga;
+import victor.training.microservices.order.SagaState;
 import victor.training.microservices.order.SagaRepo;
 
 import static org.springframework.messaging.support.MessageBuilder.withPayload;
@@ -22,47 +22,47 @@ import static org.springframework.messaging.support.MessageBuilder.withPayload;
 public class SagaContext implements DisposableBean {
    private final SagaRepo sagaRepo;
    private final StreamBridge streamBridge;
-   private Saga saga;
+   private SagaState sagaState;
 
-   public Saga startSaga() {
-      if (saga != null) {
+   public SagaState startSaga() {
+      if (sagaState != null) {
          throw new IllegalStateException("Another saga is already in progress");
       }
-      saga = sagaRepo.save(new Saga());
-      saga.setMessageSender(this::sendMessage);
-      MDC.put("sagaId","saga-" + saga.getId());
-      log.info("Started saga id {}", saga.getId());
-      return saga;
+      sagaState = sagaRepo.save(new SagaState());
+      sagaState.setMessageSender(this::sendMessage);
+      MDC.put("sagaId", "saga-" + sagaState.getId());
+      log.info("Started saga id {}", sagaState.getId());
+      return sagaState;
    }
 
    void resumeSaga(MessageHeaders incomingHeaders) {
       Long sagaId = (Long) incomingHeaders.get("SAGA_ID");
-      saga = sagaRepo.findById(sagaId).get();
-      saga.setMessageSender(this::sendMessage);
+      sagaState = sagaRepo.findById(sagaId).get();
+      sagaState.setMessageSender(this::sendMessage);
       MDC.put("sagaId","saga-" + sagaId);
-      log.debug("<< Resumed saga id {}: {}", sagaId, saga);
+      log.debug("<< Resumed saga id {}: {}", sagaId, sagaState);
    }
 
-   public Saga currentSaga() {
-      return saga;
+   public SagaState currentSaga() {
+      return sagaState;
    }
 
    public <T> void sendMessage(String outChannel, T payload) {
       Message<T> requestMessage = withPayload(payload)
-          .setHeader("SAGA_ID", saga.getId())
+          .setHeader("SAGA_ID", sagaState.getId())
           .build();
       log.info("Sending message to {}: {}", outChannel, payload);
       streamBridge.send(outChannel, requestMessage);
    }
 
    public Long getSagaId() {
-      return saga.getId();
+      return sagaState.getId();
    }
 
    void flushSaga() {
-      if (saga != null) {
-         log.debug(">> Writing saga to DB: " + saga);
-         sagaRepo.save(saga);
+      if (sagaState != null) {
+         log.debug(">> Writing saga to DB: " + sagaState);
+         sagaRepo.save(sagaState);
       }
       MDC.clear();
    }
