@@ -23,8 +23,10 @@ import static java.time.LocalDateTime.now;
 public class PlaceOrderSaga {
    private final SagaContext context;
 
+
+
    @GetMapping
-   public String startSaga() {
+   public String startMessageSaga() {
       SagaState sagaState = context.startSaga();
       String orderText = "Pizza Order " + now().format(DateTimeFormatter.ISO_LOCAL_TIME);
       sagaState.setOrderText(orderText);
@@ -39,7 +41,6 @@ public class PlaceOrderSaga {
 
    @Bean
    public Consumer<PaymentResponse> paymentResponse() {
-
 //      if (true)
 //         return response -> context.currentSaga().handleAnyResponse(response); // State pattern
 //      if (true)
