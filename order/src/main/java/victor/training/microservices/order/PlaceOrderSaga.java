@@ -96,6 +96,7 @@ public class PlaceOrderSaga {
             if (response.getStatus() == DeliveryResponse.Status.BOOKED) {
                log.info("SAGA completed OK");
                context.currentSaga().setCourierPhone(response.getCourierPhone());
+//               websocketReposiory.findClient().send("ORDER ACCEPTED")
                context.currentSaga().setStatus(Status.COMPLETED);
             } else {
                log.error("SAGA failed at step DELIVERY");

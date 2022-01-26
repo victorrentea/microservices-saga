@@ -12,7 +12,10 @@ import victor.training.microservices.message.DeliveryResponse.Status;
 
 import java.util.function.Function;
 
+//interface MessagePoints {
+//	}
 @Slf4j
+//@EnableBinding(MessagePoints.class)
 @SpringBootApplication
 public class DeliveryApplication {
 
@@ -22,7 +25,7 @@ public class DeliveryApplication {
 
 
 	@Bean
-	public Function<Message<String>, Message<DeliveryResponse>> restaurant() {
+	public Function<Message<String>, Message<DeliveryResponse>> delivery() {
 		return request -> {
 			log.info("Received delivery request for " + request.getPayload());
 			log.info("SAGA_ID="+request.getHeaders().get("SAGA_ID"));
@@ -32,9 +35,9 @@ public class DeliveryApplication {
 
 //			String response = "KO";
 			DeliveryResponse response = new DeliveryResponse()
-				.setStatus(Status.BOOKED)
+//				.setStatus(Status.BOOKED)
 				.setCourierPhone("::phone::")
-//				.setStatus(Status.COURIER_NOT_FOUND)
+				.setStatus(Status.COURIER_NOT_FOUND)
 				;
 
 			log.info("Sending response: " + response);
