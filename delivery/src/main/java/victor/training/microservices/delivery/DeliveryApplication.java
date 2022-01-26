@@ -20,24 +20,22 @@ public class DeliveryApplication {
 		SpringApplication.run(DeliveryApplication.class, args);
 	}
 
-
 	@Bean
-	public Function<Message<String>, Message<DeliveryResponse>> restaurant() {
+	public Function<Message<String>, Message<DeliveryResponse>> delivery() {
 		return request -> {
-			log.info("Received delivery request for " + request.getPayload());
+			log.info("Received delivery request: " + request.getPayload());
 			log.info("SAGA_ID="+request.getHeaders().get("SAGA_ID"));
 
-			log.info("Finding delivery boy ...");
+			log.info("Finding delivery man ...");
 			Sleep.sleepQuiet(1000);
 
-//			String response = "KO";
 			DeliveryResponse response = new DeliveryResponse()
 				.setStatus(Status.BOOKED)
 				.setCourierPhone("::phone::")
 //				.setStatus(Status.COURIER_NOT_FOUND)
 				;
 
-			log.info("Sending response: " + response);
+			log.info("Sending reply: " + response);
 			return MessageBuilder.createMessage(response, request.getHeaders());
 		};
 	}
