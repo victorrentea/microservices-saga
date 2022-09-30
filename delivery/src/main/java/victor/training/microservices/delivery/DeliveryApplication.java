@@ -30,7 +30,7 @@ public class DeliveryApplication {
 			Sleep.sleepQuiet(1000);
 
 			DeliveryResponse response = new DeliveryResponse()
-				.setStatus(Status.BOOKED)
+				.setStatus(Status.COURIER_ASSIGNED)
 				.setCourierPhone("::phone::")
 //				.setStatus(Status.COURIER_NOT_FOUND)
 				;

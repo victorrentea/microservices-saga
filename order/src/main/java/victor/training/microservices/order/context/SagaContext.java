@@ -59,7 +59,7 @@ public class SagaContext implements DisposableBean {
       return sagaState.getId();
    }
 
-   void flushSaga() {
+   void saveSagaInDB() {
       if (sagaState != null) {
          log.debug(">> Writing saga to DB: " + sagaState);
          sagaRepo.save(sagaState);
@@ -69,6 +69,6 @@ public class SagaContext implements DisposableBean {
 
    @Override
    public void destroy() throws Exception {
-      flushSaga();
+      saveSagaInDB();
    }
 }

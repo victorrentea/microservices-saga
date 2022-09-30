@@ -30,7 +30,7 @@ public class PlaceOrderRestController {
 
       DeliveryResponse deliveryResponse = deliveryClient.findCourier(restaurantResponse.getDishId());
 
-      if (deliveryResponse.getStatus() == DeliveryResponse.Status.BOOKED) {
+      if (deliveryResponse.getStatus() == DeliveryResponse.Status.COURIER_ASSIGNED) {
          return "COMPLETED";
       } else {
          return "Could not locate a courier";

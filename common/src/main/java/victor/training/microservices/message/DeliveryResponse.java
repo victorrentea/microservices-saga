@@ -5,7 +5,7 @@ import lombok.Data;
 @Data
 public class DeliveryResponse {
    public enum Status {
-      BOOKED,
+      COURIER_ASSIGNED,
       COURIER_NOT_FOUND
    }
    private Status status;

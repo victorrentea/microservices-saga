@@ -165,7 +165,7 @@ public class SagaState {
          }
       }
 
-   public void handleAnyResponse(Object responsePayload) {
+   public void handleAnyResponseUsingStatePattern(Object responsePayload) {
       log.info("Received response message: " + responsePayload);
       Status newStatus = tryExecuteRequest(responsePayload);
 

@@ -21,90 +21,77 @@ import static java.time.LocalDateTime.now;
 @RequiredArgsConstructor
 @RestController
 public class PlaceOrderSaga {
-   private final SagaContext context;
-
-
+   private final SagaContext sagaContext;
 
    @GetMapping
    public String startMessageSaga() {
-      SagaState sagaState = context.startSaga();
+      SagaState sagaState = sagaContext.startSaga();
       String orderText = "Pizza Order " + now().format(DateTimeFormatter.ISO_LOCAL_TIME);
       sagaState.setOrderText(orderText);
-      context.sendMessage("paymentRequest-out-0", orderText);
+      sagaContext.sendMessage("paymentRequest-out-0", orderText);
       sagaState.setStatus(Status.AWAITING_PAYMENT);
       return "Message sent!";
    }
 
    private <T> Consumer<T> wrap(BiConsumer<T, BiConsumer<String, Object>> sagaMethod) {
-      return response -> sagaMethod.accept(response, context::sendMessage);
+      return response -> sagaMethod.accept(response, sagaContext::sendMessage);
    }
 
    @Bean
    public Consumer<PaymentResponse> paymentResponse() {
-//      if (true)
-//         return response -> context.currentSaga().handleAnyResponse(response); // State pattern
-//      if (true)
-//         return response -> context.currentSaga().paymentResponse(response); // OOP
-//      else
-      return response -> { // transaction script
-         if (context.currentSaga().getStatus() != Status.AWAITING_PAYMENT) {
-            throw new IllegalStateException();
+      // Trick: sagaContext.currentSaga() returns the saga fetched from DB by the 'SAGA_ID' header in the incoming message
+      return response -> {
+         if (sagaContext.currentSaga().getStatus() != Status.AWAITING_PAYMENT) {
+            throw new IllegalStateException("I should be waiting for PAYMENT response");
          }
-         if (response.getStatus() == PaymentResponse.Status.KO) {
-            log.error("SAGA failed at step PAYMENT. All fine: nothing to undo");
-            context.currentSaga().setStatus(Status.FAILED);
+         if (response.getStatus() == PaymentResponse.Status.OK) {
+            sagaContext.currentSaga().setPaymentConfirmationNumber(response.getPaymentConfirmationNumber());
+            sagaContext.sendMessage("restaurantRequest-out-0", "Please cook " + sagaContext.currentSaga().getOrderText());
+            sagaContext.currentSaga().setStatus(Status.AWAITING_RESTAURANT);
          } else {
-            context.currentSaga().setPaymentConfirmationNumber(response.getPaymentConfirmationNumber());
-            context.sendMessage("restaurantRequest-out-0", "Please cook " + context.currentSaga().getOrderText());
-            context.currentSaga().setStatus(Status.AWAITING_RESTAURANT);
+            log.error("SAGA failed at step PAYMENT. All fine: nothing to undo");
+            sagaContext.currentSaga().setStatus(Status.FAILED);
+         }
+      };
+      // Trick: the currentSaga() is auto-flushed at the end automatically
+   }
+
+   @Bean
+   public Consumer<RestaurantResponse> restaurantResponse() {
+      return response -> {
+         if (sagaContext.currentSaga().getStatus() != Status.AWAITING_RESTAURANT) {
+            throw new IllegalStateException("I should be waiting for RESTAURANT response");
+         }
+         if (response.getStatus() != RestaurantResponse.Status.ORDER_ACCEPTED) {
+            String dishId = response.getDishId();
+            sagaContext.currentSaga().setRestaurantDishId(dishId);
+            sagaContext.sendMessage("deliveryRequest-out-0", "Deliver dishId " + dishId);
+            sagaContext.currentSaga().setStatus(Status.AWAITING_DELIVERY);
+         } else {
+            log.error("SAGA failed at step RESTAURANT");
+            sagaContext.sendMessage("paymentUndoRequest-out-0", "Revert payment confirmation number:" + sagaContext.currentSaga().getPaymentConfirmationNumber());
+            sagaContext.currentSaga().setStatus(Status.FAILED);
          }
       };
    }
 
    @Bean
-   public Consumer<RestaurantResponse> restaurantResponse() {
-      if (true) {
-         return response -> context.currentSaga().handleAnyResponse(response);
-      } else { // OR ...
-         return response -> {
-            if (context.currentSaga().getStatus() != Status.AWAITING_RESTAURANT) {
-               throw new IllegalStateException();
-            }
-            if (response.getStatus() == RestaurantResponse.Status.DISH_UNAVAILABLE) {
-               log.error("SAGA failed at step RESTAURANT");
-               context.sendMessage("paymentUndoRequest-out-0", "Revert payment confirmation number:" + context.currentSaga().getPaymentConfirmationNumber());
-               context.currentSaga().setStatus(Status.FAILED);
-            } else {
-               String dishId = response.getDishId();
-               context.currentSaga().setRestaurantDishId(dishId);
-               context.sendMessage("deliveryRequest-out-0", "Deliver dishId " + dishId);
-               context.currentSaga().setStatus(Status.AWAITING_DELIVERY);
-            }
-         };
-      }
-   }
-
-   @Bean
    public Consumer<DeliveryResponse> deliveryResponse() {
-      if (true) {
-         return response -> context.currentSaga().handleAnyResponse(response);
-      } else { // OR
-         return response -> {
-            if (context.currentSaga().getStatus() != Status.AWAITING_DELIVERY) {
-               throw new IllegalStateException();
-            }
-            if (response.getStatus() == DeliveryResponse.Status.BOOKED) {
-               log.info("SAGA completed OK");
-               context.currentSaga().setCourierPhone(response.getCourierPhone());
-               context.currentSaga().setStatus(Status.COMPLETED);
-            } else {
-               log.error("SAGA failed at step DELIVERY");
-               context.sendMessage("paymentUndoRequest-out-0", "Revert payment confirmation number:" + context.currentSaga().getPaymentConfirmationNumber());
-               context.sendMessage("restaurantUndoRequest-out-0", "Cancel cooking dish ID:" + context.currentSaga().getRestaurantDishId());
-               context.currentSaga().setStatus(Status.FAILED);
-            }
-         };
-      }
+      return response -> {
+         if (sagaContext.currentSaga().getStatus() != Status.AWAITING_DELIVERY) {
+            throw new IllegalStateException("I should be waiting for DELIVERY response");
+         }
+         if (response.getStatus() == DeliveryResponse.Status.COURIER_ASSIGNED) {
+            log.info("SAGA completed OK");
+            sagaContext.currentSaga().setCourierPhone(response.getCourierPhone());
+            sagaContext.currentSaga().setStatus(Status.COMPLETED);
+         } else {
+            log.error("SAGA failed at step DELIVERY");
+            sagaContext.sendMessage("paymentUndoRequest-out-0", "Revert payment confirmation number:" + sagaContext.currentSaga().getPaymentConfirmationNumber());
+            sagaContext.sendMessage("restaurantUndoRequest-out-0", "Cancel cooking dish ID:" + sagaContext.currentSaga().getRestaurantDishId());
+            sagaContext.currentSaga().setStatus(Status.FAILED);
+         }
+      };
    }
 
 }
