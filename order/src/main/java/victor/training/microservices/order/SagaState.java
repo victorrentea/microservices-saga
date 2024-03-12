@@ -12,6 +12,7 @@ import victor.training.microservices.message.RestaurantResponse;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -37,6 +38,13 @@ public class SagaState {
    private MessageSender messageSender;
    private String courierPhone;
 
+   public Status status() {
+      return status;
+   }
+
+   public boolean checkHasStatus(Status... statuses) {
+      return List.of(statuses).contains(status);
+   }
 
    public void setErrorMessage(String errorMessage) {
       this.errorMessage = errorMessage;
@@ -103,7 +111,7 @@ public class SagaState {
    }
       final class PaymentStage extends Stage {
          public void request() {
-            messageSender.sendMessage("paymentRequest-out-0", orderText);
+            messageSender.sendMessage("process-payment-command", orderText);
          }
 
          public Status receive(Object message) {
@@ -119,13 +127,13 @@ public class SagaState {
          }
 
          public void undo() {
-            messageSender.sendMessage("paymentUndoRequest-out-0", "Revert payment confirmation number:" + paymentConfirmationNumber);
+            messageSender.sendMessage("revert-payment-command", "Revert payment confirmation number:" + paymentConfirmationNumber);
          }
       }
 
       final class RestaurantStage extends Stage {
          public void request() {
-            messageSender.sendMessage("restaurantRequest-out-0", "Please cook " + orderText);
+            messageSender.sendMessage("cook-food-command", "Please cook " + orderText);
          }
 
          public Status receive(Object message) {
@@ -147,7 +155,7 @@ public class SagaState {
 
       final class DeliveryStage extends Stage {
          public void request() {
-            messageSender.sendMessage("deliveryRequest-out-0", "Deliver dishId " + restaurantDishId);
+            messageSender.sendMessage("find-courier-command", "Deliver dishId " + restaurantDishId);
          }
 
          public Status receive(Object message) {
@@ -221,7 +229,7 @@ public class SagaState {
       } else {
          paymentConfirmationNumber = response.getPaymentConfirmationNumber();
          status = Status.AWAITING_RESTAURANT;
-         messageSender.sendMessage("restaurantRequest-out-0", "Please cook " + orderText);
+         messageSender.sendMessage("cook-food-command", "Please cook " + orderText);
       }
    }
 

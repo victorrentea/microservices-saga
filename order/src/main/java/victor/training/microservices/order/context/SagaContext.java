@@ -43,7 +43,7 @@ public class SagaContext implements DisposableBean {
       log.debug("<< Resumed saga id {}: {}", sagaId, sagaState);
    }
 
-   public SagaState currentSaga() {
+   public SagaState saga() {
       return sagaState;
    }
 
